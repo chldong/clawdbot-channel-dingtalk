@@ -1,0 +1,36 @@
+{
+  "name": "@clawdbot/dingtalk",
+  "version": "1.0.0",
+  "description": "DingTalk (钉钉) channel plugin for Clawdbot",
+  "main": "plugin.ts",
+  "type": "module",
+  "scripts": {
+    "test": "node test.js",
+    "build": "echo 'No build needed - jiti loads TS at runtime'"
+  },
+  "keywords": ["clawdbot", "dingtalk", "channel", "stream", "bot"],
+  "author": "sym",
+  "license": "MIT",
+  "dependencies": {
+    "dingtalk-stream": "^2.1.4",
+    "axios": "^1.6.0"
+  },
+  "clawdbot": {
+    "extensions": ["./plugin.ts"],
+    "channel": {
+      "id": "dingtalk",
+      "label": "DingTalk",
+      "selectionLabel": "DingTalk (钉钉)",
+      "docsPath": "/channels/dingtalk",
+      "docsLabel": "dingtalk",
+      "blurb": "钉钉企业内部机器人，使用 Stream 模式，无需公网 IP。",
+      "order": 70,
+      "aliases": ["dd", "ding"]
+    },
+    "install": {
+      "npmSpec": "@clawdbot/dingtalk",
+      "localPath": "extensions/dingtalk-channel",
+      "defaultChoice": "local"
+    }
+  }
+}

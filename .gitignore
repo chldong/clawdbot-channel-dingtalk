@@ -1,0 +1,19 @@
+# Dependency files
+node_modules/
+package-lock.json
+
+# Build files
+dist/
+*.js.map
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+
+# Credentials (IMPORTANT: DO NOT PUBLISH YOUR APP KEYS)
+credentials.json
+.env
