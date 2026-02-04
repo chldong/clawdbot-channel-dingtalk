@@ -44,6 +44,12 @@ openclaw plugins install -l .
 2. 确保包含 `index.ts`, `openclaw.plugin.json` 和 `package.json`。
 3. 运行 `openclaw plugins list` 确认 `dingtalk` 已显示在列表中。
 
+## 更新
+
+```
+openclaw plugins update dingtalk
+```
+
 ## 配置
 
 ### 1. 创建钉钉应用
