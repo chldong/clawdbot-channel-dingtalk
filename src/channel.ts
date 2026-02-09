@@ -32,6 +32,13 @@ import type {
 import { AICardStatus } from './types';
 import { detectMediaTypeFromExtension, uploadMedia as uploadMediaUtil } from './media-utils';
 
+/**
+ * Get current timestamp in ISO 8601 format for status tracking
+ */
+function getCurrentTimestamp(): string {
+  return new Date().toISOString();
+}
+
 // Access Token cache - keyed by clientId for multi-account support
 interface TokenCache {
   accessToken: string;
@@ -1540,7 +1547,9 @@ export const dingtalkPlugin = {
       // Create connection manager
       const connectionManager = new ConnectionManager(client, account.accountId, connectionConfig, ctx.log);
 
-      // Track stopped state
+      // Track stopped state to prevent duplicate stop operations
+      // The 'stopped' flag guards against multiple termination paths (abort signal, explicit stop)
+      // from executing concurrently and ensures each lifecycle transition updates snapshot only once
       let stopped = false;
 
       // Setup abort signal handler BEFORE connecting
@@ -1549,6 +1558,14 @@ export const dingtalkPlugin = {
         // Check if already aborted before we even start
         if (abortSignal.aborted) {
           ctx.log?.warn?.(`[${account.accountId}] Abort signal already active, skipping connection`);
+          
+          // Update snapshot: channel aborted before start
+          ctx.updateSnapshot?.({
+            running: false,
+            lastStopAt: getCurrentTimestamp(),
+            lastError: 'Connection aborted before start',
+          });
+          
           throw new Error('Connection aborted before start');
         }
 
@@ -1557,14 +1574,47 @@ export const dingtalkPlugin = {
           stopped = true;
           ctx.log?.info?.(`[${account.accountId}] Abort signal received, stopping DingTalk Stream client...`);
           connectionManager.stop();
+          
+          // Update snapshot: channel stopped by abort signal
+          ctx.updateSnapshot?.({
+            running: false,
+            lastStopAt: getCurrentTimestamp(),
+          });
         });
       }
 
       // Connect with robust retry logic
       try {
         await connectionManager.connect();
+        
+        // Only mark as running if we weren't stopped and the connection is actually established
+        if (!stopped && connectionManager.isConnected()) {
+          // Update snapshot: connection successful, channel is now running
+          ctx.updateSnapshot?.({
+            running: true,
+            lastStartAt: getCurrentTimestamp(),
+            lastError: null,
+          });
+          ctx.log?.info?.(
+            `[${account.accountId}] DingTalk Stream client connected successfully`
+          );
+        } else {
+          // Startup was cancelled or connection is not established; do not overwrite stopped snapshot.
+          ctx.log?.info?.(
+            `[${account.accountId}] DingTalk Stream client connect() completed but channel is ` +
+            `not running (stopped=${stopped}, connected=${connectionManager.isConnected()})`
+          );
+        }
       } catch (err: any) {
-        ctx.log?.error?.(`[${account.accountId}] Failed to establish connection: ${err.message}`);
+        ctx.log?.error?.(
+          `[${account.accountId}] Failed to establish connection: ${err.message}`
+        );
+
+        // Update snapshot: connection failed
+        ctx.updateSnapshot?.({
+          running: false,
+          lastError: err.message || 'Connection failed',
+        });
         throw err;
       }
 
@@ -1575,6 +1625,13 @@ export const dingtalkPlugin = {
           stopped = true;
           ctx.log?.info?.(`[${account.accountId}] Stopping DingTalk Stream client...`);
           connectionManager.stop();
+          
+          // Update snapshot: channel stopped
+          ctx.updateSnapshot?.({
+            running: false,
+            lastStopAt: getCurrentTimestamp(),
+          });
+          
           ctx.log?.info?.(`[${account.accountId}] DingTalk Stream client stopped`);
         },
       };
